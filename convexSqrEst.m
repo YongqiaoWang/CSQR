@@ -1,0 +1,1 @@
+function vEstY=convexsqr(mEstX,mTrainX,vTrainY,tau,valpha,mBeta)
