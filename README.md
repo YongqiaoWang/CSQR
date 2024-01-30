@@ -8,7 +8,7 @@ It is in same framework of convex nonparametric least squares (CNLS), convex qua
 
 # Python package
 ## Files
-CSQR.py main file. 
+CSQR.py the main file. 
 
 prop1.py the first experiment
 
@@ -18,7 +18,7 @@ prop3.py the third experiment
 
 draw_disturbed_frontier.py draw the figures in the first and second experiments
 
-draw_multiple_frontiers dreaw the figures in the third experiment
+draw_multiple_frontiers draw the figures in the third experiment
 
 # Matlab package
 ## Files
