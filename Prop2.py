@@ -5,17 +5,30 @@ import pystoned as pysd
 import numpy as np
 from pystoned.constant import CET_ADDI, FUN_PROD, OPT_LOCAL, RTS_VRS
 
-tau = 0.5
-sSigmaV, sSigmaU, sDisturbSigma = 0.1, 0.1, 0.2
-nSample = 40
-sMinX, sMaxX = 0.01, 5
-ProbDisturb = 0.6
-TrueAlpha, TrueBeta  = -1, 0.7
+# tau = 0.5
+# sSigmaV, sSigmaU, sDisturbSigma = 0.1, 0.1, 0.2
+# nSample = 40
+# sMinX, sMaxX = 0.01, 5
+# ProbDisturb = 0.6
+# TrueAlpha, TrueBeta  = -1, 0.7
 
+# InputX = np.random.uniform(sMinX, sMaxX, (nSample, 1))
+# compError = np.random.normal(0, sSigmaV, nSample)-np.abs(np.random.normal(0, sSigmaU, nSample))
+# OutputY = np.exp(TrueAlpha+(TrueBeta*np.log(InputX)).reshape(nSample)+compError)
+# TrueY = np.exp(TrueAlpha+TrueBeta*np.log(InputX))
+
+
+tau = 0.5
+sSigmaV, sSigmaU, sDisturbSigma = 0.2, 0.2, 0.07
+nSample = 50
+sMinX, sMaxX = 1, 10
+ProbDisturb = 0.5
+TrueAlpha, TrueBeta  = 3, 1
 InputX = np.random.uniform(sMinX, sMaxX, (nSample, 1))
 compError = np.random.normal(0, sSigmaV, nSample)-np.abs(np.random.normal(0, sSigmaU, nSample))
-OutputY = np.exp(TrueAlpha+(TrueBeta*np.log(InputX)).reshape(nSample)+compError)
-TrueY = np.exp(TrueAlpha+TrueBeta*np.log(InputX))
+TrueY = TrueAlpha+TrueBeta*np.log(InputX)
+OutputY = (TrueAlpha+TrueBeta*np.log(InputX)).reshape(nSample)+compError
+
 
 CSQR1 = pysd.CSQR.CSQR(y=OutputY, x=InputX, tau=tau, z=None, cet=CET_ADDI, fun=FUN_PROD, rts=RTS_VRS)
 CSQR1.optimize(OPT_LOCAL, solver='mosek')

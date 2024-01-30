@@ -4,18 +4,26 @@ import pystoned as pysd
 import numpy as np
 from pystoned.constant import CET_ADDI, FUN_PROD, OPT_LOCAL, RTS_VRS
 
-sSigmaV, sSigmaU = 0.1, 0.1
-nSample = 40
-sMinX, sMaxX = 0.01, 5
-ProbDisturb = 0.8
-TrueAlpha, TrueBeta  = -1, 0.6
+# sSigmaV, sSigmaU = 0.1, 0.1
+# nSample = 40
+# sMinX, sMaxX = 0.01, 5
+# ProbDisturb = 0.8
+# TrueAlpha, TrueBeta  = -1, 0.6
+# InputX = np.random.uniform(sMinX, sMaxX, (nSample, 1))
+# compError = np.random.normal(0, sSigmaV, nSample)-np.abs(np.random.normal(0, sSigmaU, nSample))
+# OutputY = np.exp(TrueAlpha+(TrueBeta*np.log(InputX)).reshape(nSample)+compError)
+# TrueY = np.exp(TrueAlpha+TrueBeta*np.log(InputX))
 
 
 
+sSigmaV, sSigmaU = 0.2, 0.2
+nSample = 50
+sMinX, sMaxX = 1, 10
+TrueAlpha, TrueBeta  = 3, 1
 InputX = np.random.uniform(sMinX, sMaxX, (nSample, 1))
 compError = np.random.normal(0, sSigmaV, nSample)-np.abs(np.random.normal(0, sSigmaU, nSample))
-OutputY = np.exp(TrueAlpha+(TrueBeta*np.log(InputX)).reshape(nSample)+compError)
-TrueY = np.exp(TrueAlpha+TrueBeta*np.log(InputX))
+TrueY = TrueAlpha+TrueBeta*np.log(InputX)
+OutputY = (TrueAlpha+TrueBeta*np.log(InputX)).reshape(nSample)+compError
 
 vtau=[0.9,0.7,0.5,0.3,0.1]
 #vtau=[0.9]
