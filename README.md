@@ -1,29 +1,28 @@
 # CSQR: convex superquantile regression
-This package is used to estimate superquantile frontier for efficiency analysis.
+This package is used to estimate the superquantile frontier function with linear superquantile regression and convex nonparametric superquantile regression.
 
-The frontier is assume to be increasing and concave.
+The production frontier is assume to be increasing and concave.
 
-It is in same framework of convex nonparametric least squares (CNLS), convex quantile regression (CQR), convex expectile regression (CER).
+The nonparametric regression is in same framework of convex nonparametric least squares (CNLS), convex quantile regression (CQR), convex expectile regression (CER).
 
 
 # Python package
-## Files
-CSQR.py the main file. 
 
-prop1.py the first experiment
+CSQR.py Convex nonparametric superquantile regression. 
 
-prop2.py the secost experiment
+LSQR.py Linear superquantile regression. 
 
-prop3.py the third experiment
+Exp1-prop1.py the first experiment
+
+Exp2-prop2.py the secost experiment
+
+Exp3-prop3.py the third experiment
+
+Exp4-Collei.py the third experiment
 
 draw_disturbed_frontier.py draw the figures in the first and second experiments
 
 draw_multiple_frontiers draw the figures in the third experiment
 
-# Matlab package
-## Files
-convexSqrEst.m  the fitting step
-
-convexSqrTrain.m the exptrapolation step
 
 
