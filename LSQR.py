@@ -8,12 +8,12 @@ from .constant import CET_ADDI, CET_MULT, FUN_PROD, FUN_COST, RTS_CRS, RTS_VRS, 
 from .utils import tools, interpolation
 
 
-class CSQR:
-    """Convex superquantile regression (CSQR)
+class LSQR:
+    """Linear superquantile regression (LSQR)
     """
 
     def __init__(self, y, x, tau, z=None, cet=CET_ADDI, fun=FUN_PROD, rts=RTS_VRS):
-        """CSQR model
+        """LSQR model
 
         Args:
             y (float): output variable. 
@@ -33,6 +33,10 @@ class CSQR:
 
         self.nSample = len(self.y)
         self.nInput = len(self.x[0])
+        self.alpha = 0
+        self.beta = np.zeros(self.nInput)
+        # self.epsilon = np.zeros(self.nSample)
+        
         self.kStart = np.ceil(self.nSample*self.tau).astype('int')-1
         self.t = (1+np.arange(self.nSample))/self.nSample
         self.t[self.kStart-1] = self.tau
@@ -43,12 +47,9 @@ class CSQR:
             self.paraE[k] = np.log(1-self.t[k-1])-np.log(1-self.t[k])
         self.paraz = self.paraz/(1-self.tau)
         self.paraE = self.paraE/(self.nSample*(1-self.tau))
-
-        self.epsilon = np.zeros(self.nSample)
-        self.diff=0
-        
-        # Initialize the CSQR model
-        self.__model__=ConcreteModel('Step 1 of convex superquantile regression')
+       
+        # Initialize the LSQR model
+        self.__model__=ConcreteModel('Step 1 of linear superquantile regression')
 
         if type(self.z) != type(None):
             # Initialize the set of z
@@ -63,43 +64,33 @@ class CSQR:
         self.__model__.IK = Set(initialize = range(self.kStart, self.nSample - 1))
 
         # Initialize the variables
-        self.__model__.a = Var(self.__model__.I, doc='a')
-        self.__model__.B = Var(self.__model__.I, self.__model__.J, domain=NonNegativeReals, doc='B')
-        self.__model__.epsilon = Var(self.__model__.I, doc='epsion')
-        self.__model__.z = Var(self.__model__.IK, doc='z aux')
+        # self.__model__.alpha = Var(within=Reals, doc='alpha')
+        self.__model__.beta = Var(self.__model__.J, within=Reals, doc='beta')
+        self.__model__.epsilon = Var(self.__model__.I, within=Reals, doc='epsion')
+        self.__model__.z = Var(self.__model__.IK, within=Reals, doc='z aux')
         self.__model__.E = Var(self.__model__.IK, self.__model__.I, domain=NonNegativeReals, doc='E')
         self.__model__.w = Var(within=Reals, doc='w')
 
-        self.__model__.epsilon_plus = Var(
-             self.__model__.I, doc='positive error term')
-        self.__model__.epsilon_minus = Var(
-             self.__model__.I, doc='negative error term')
+        self.__model__.epsilon_plus = Var(self.__model__.I, doc='positive error term')
+        self.__model__.epsilon_minus = Var(self.__model__.I, doc='negative error term')
         self.__model__.frontier = Var(self.__model__.I,
-                                       bounds=(0.0, None),
-                                       doc='estimated frontier')
+                                        bounds=(0.0, None),
+                                        doc='estimated frontier')
         
         # Setup the objective function and constraints
         self.__model__.objective = Objective(rule=self.__objective_rule(),
                                              sense=minimize,
                                              doc='objective function')
 
-        # self.__model__.error_decomposition = Constraint(self.__model__.I,
-        #                                                 rule=self.__error_decomposition(),
-        #                                                 doc='decompose error term')
 
         self.__model__.regression_rule = Constraint(self.__model__.I,
                                                     rule=self.__regression_rule(),
                                                     doc='regression equation')
-        if self.cet == CET_MULT:
-            self.__model__.log_rule = Constraint(self.__model__.I,
-                                                 rule=self.__log_rule(),
-                                                 doc='log-transformed regression equation')
-
-        self.__model__.afriat_rule = Constraint(self.__model__.I,
-                                                self.__model__.I,
-                                                rule=self.__afriat_rule(),
-                                                doc='afriat inequality')
-        
+        # if self.cet == CET_MULT:
+        #     self.__model__.log_rule = Constraint(self.__model__.I,
+        #                                          rule=self.__log_rule(),
+        #                                          doc='log-transformed regression equation')
+       
         self.__model__.E_rule = Constraint(self.__model__.IK,
                                            self.__model__.I, 
                                            rule=self.__E_rule(),
@@ -120,12 +111,13 @@ class CSQR:
             email (string): The email address for remote optimization. It will optimize locally if OPT_LOCAL is given.
             solver (string): The solver chosen for optimization. It will optimize with default solver if OPT_DEFAULT is given.
         """
+        print('The first step of superquantile regression............')
         # TODO(error/warning handling): Check problem status after optimization
         self.problem_status, self.optimization_status = tools.optimize_model(
             self.__model__, email, self.cet, solver)
 
         if (self.optimization_status == 0):
-            print('The first step of convex superquantile regression failed............')
+            print('The first step of linear superquantile regression failed............')
             return
         
         tools.assert_optimized(self.optimization_status)
@@ -133,7 +125,7 @@ class CSQR:
         self.epsilon = self.get_residual()
 
         #the second step of convex superquantile regression
-        self.__model2__=ConcreteModel('Step 2 of convex superquantile regression')
+        self.__model2__=ConcreteModel('Step 2 of linear superquantile regression')
 
         # Initialize the sets
         self.__model2__.I = Set(initialize=range(self.nSample))
@@ -153,19 +145,22 @@ class CSQR:
 
         self.problem_status, self.optimization_status = tools.optimize_model(
             self.__model2__, email, self.cet, solver)
-        
 
         if (self.optimization_status == 0):
-            print('The second step of superquantile regression failed............')
+            print('The second step of linear superquantile regression failed............')
             return
         
-        self.diff = self.__model2__.objective() - self.__model2__.a0.value
+        #self.__model__.alpha.set_value(self.__model2__.objective())
+        self.alpha=self.__model2__.objective()
+        for j in self.__model__.J:
+            self.beta[j]=self.__model__.beta[j].value
         
         for i in self.__model__.I:
-            self.__model__.a[i].set_value(self.__model__.a[i].value+self.__model2__.objective())
+            # self.__model__.epsilon[i].set_value(self.y[i]-self.__model2__.objective()-np.dot(self.beta,self.x[i]))
             self.__model__.epsilon[i].set_value(self.__model__.epsilon[i].value - self.__model2__.objective())
             self.__model__.epsilon_plus[i].set_value(np.max(self.__model__.epsilon[i].value,0))
             self.__model__.epsilon_minus[i].set_value(np.max(-self.__model__.epsilon[i].value, 0))
+
 
         print("Two steps of convex superquantile regression is done.....")
         
@@ -208,34 +203,37 @@ class CSQR:
     
     def __regression_rule(self):
         """Return the proper regression constraint"""
+        
+        # def regression_rule(model, i):
+        #     return self.y[i] == np.dot(self.x[i],model.beta) + model.epsilon[i]
+
+        # return regression_rule
         if self.cet == CET_ADDI:
             if self.rts == RTS_VRS:
                 if type(self.z) != type(None):
                     def regression_rule(model, i):
-                        return self.y[i] == model.a[i] \
-                            + sum(model.B[i, j] * self.x[i][j] for j in model.J) \
+                        return self.y[i] == np.dot(self.x[i],model.beta)\
                             + sum(model.lamda[k] * self.z[i][k]
                                   for k in model.K) + model.epsilon[i]
 
                     return regression_rule
 
                 def regression_rule(model, i):
-                    return self.y[i] == model.a[i] \
-                        + sum(model.B[i, j] * self.x[i][j] for j in model.J) \
+                    return self.y[i] == np.dot(self.x[i],model.beta) \
                         + model.epsilon[i]
 
                 return regression_rule
             elif self.rts == RTS_CRS:
                 if type(self.z) != type(None):
                     def regression_rule(model, i):
-                        return self.y[i] == sum(model.B[i, j] * self.x[i][j] for j in model.J) \
+                        return self.y[i] == np.dot(self.x[i],model.beta) \
                             + sum(model.lamda[k] * self.z[i][k]
                                   for k in model.K) + model.epsilon[i]
 
                     return regression_rule
 
                 def regression_rule(model, i):
-                    return self.y[i] == sum(model.B[i, j] * self.x[i][j] for j in model.J) \
+                    return self.y[i] == np.dot(self.x[i],model.beta) \
                         + model.epsilon[i]
 
                 return regression_rule
@@ -256,83 +254,7 @@ class CSQR:
 
         raise ValueError("Undefined model parameters.")
 
-    def __log_rule(self):
-        """Return the proper log constraint"""
-        if self.cet == CET_MULT:
-            if self.rts == RTS_VRS:
-
-                def log_rule(model, i):
-                    return model.frontier[i] == model.a[i] + sum(
-                        model.B[i, j] * self.x[i][j] for j in model.J) - 1
-
-                return log_rule
-            elif self.rts == RTS_CRS:
-
-                def log_rule(model, i):
-                    return model.frontier[i] == sum(
-                        model.B[i, j] * self.x[i][j] for j in model.J) - 1
-
-                return log_rule
-
-        raise ValueError("Undefined model parameters.")
-
-    def __afriat_rule(self):
-        """Return the proper afriat inequality constraint"""
-        if self.fun == FUN_PROD:
-            __operator = NumericValue.__le__
-        elif self.fun == FUN_COST:
-            __operator = NumericValue.__ge__
-
-        if self.cet == CET_ADDI:
-            if self.rts == RTS_VRS:
-
-                def afriat_rule(model, i, h):
-                    if i == h:
-                        return Constraint.Skip
-                    return __operator(
-                        model.a[i] + sum(model.B[i, j] * self.x[i][j]
-                                             for j in model.J),
-                        model.a[h] + sum(model.B[h, j] * self.x[i][j]
-                                             for j in model.J))
-
-                return afriat_rule
-            elif self.rts == RTS_CRS:
-                def afriat_rule(model, i, h):
-                    if i == h:
-                        return Constraint.Skip
-                    return __operator(
-                        sum(model.B[i, j] * self.x[i][j]
-                            for j in model.J),
-                        sum(model.B[h, j] * self.x[i][j]
-                            for j in model.J))
-
-                return afriat_rule
-        elif self.cet == CET_MULT:
-            if self.rts == RTS_VRS:
-
-                def afriat_rule(model, i, h):
-                    if i == h:
-                        return Constraint.Skip
-                    return __operator(
-                        model.a[i] + sum(model.B[i, j] * self.x[i][j]
-                                             for j in model.J),
-                        model.a[h] + sum(model.B[h, j] * self.x[i][j]
-                                             for j in model.J))
-
-                return afriat_rule
-            elif self.rts == RTS_CRS:
-
-                def afriat_rule(model, i, h):
-                    if i == h:
-                        return Constraint.Skip
-                    return __operator(
-                        sum(model.B[i, j] * self.x[i][j] for j in model.J),
-                        sum(model.B[h, j] * self.x[i][j] for j in model.J))
-
-                return afriat_rule
-
-        raise ValueError("Undefined model parameters.")
-
+ 
     def __objective2_rule(self):
         """Return the proper objective function"""
 
@@ -357,12 +279,12 @@ class CSQR:
         """Display alpha value"""
         tools.assert_optimized(self.optimization_status)
         tools.assert_various_return_to_scale(self.rts)
-        self.__model__.a.display()
+        self.__model__.alpha.display()
 
     def display_beta(self):
         """Display beta value"""
         tools.assert_optimized(self.optimization_status)
-        self.__model__.B.display()
+        self.__model__.beta.display()
 
     def display_lamda(self):
         """Display lamda value"""
@@ -393,14 +315,15 @@ class CSQR:
         """Return alpha value by array"""
         tools.assert_optimized(self.optimization_status)
         tools.assert_various_return_to_scale(self.rts)
-        alpha = list(np.array(list(self.__model__.a[:].value)) + self.__model2__.objective())
+        alpha = self.__model2__.a0.value
+        #alpha = list(np.array(list(self.__model__.alpha[:].value)) + self.__model2__.a0.value)
         return np.asarray(alpha)
 
     def get_beta(self):
         """Return beta value by array"""
         tools.assert_optimized(self.optimization_status)
-        beta = np.asarray([i + tuple([j]) for i, j in zip(list(self.__model__.B),
-                                                          list(self.__model__.B[:, :].value))])
+        beta = np.asarray([i + tuple([j]) for i, j in zip(list(self.__model__.beta),
+                                                          list(self.__model__.beta[:, :].value))])
         beta = pd.DataFrame(beta, columns=['Name', 'Key', 'Value'])
         beta = beta.pivot(index='Name', columns='Key', values='Value')
         return beta.to_numpy()
@@ -438,17 +361,8 @@ class CSQR:
         elif self.cet == CET_ADDI:
             frontier = np.asarray(self.y) - self.get_residual()
         return np.asarray(frontier)
-
-    def get_frontierbyProduct(self):
-        """Return estimated by-product quantile frontier value by array"""
-        tools.assert_optimized(self.optimization_status)
-        if self.cet == CET_MULT:
-            frontier = np.asarray(list(self.__model__.frontier[:].value)) + 1
-        elif self.cet == CET_ADDI:
-            frontier = np.asarray(self.y) - self.get_residual() - self.diff
-        return np.asarray(frontier)
     
     def get_predict(self, x_test):
         """Return the estimated function in testing sample"""
         tools.assert_optimized(self.optimization_status)
-        return interpolation.interpolation(self.get_alpha(), self.get_beta(), x_test, fun=self.fun)
+        return self.alpha*np.ones(np.size(x_test,0))+np.dot(x_test,self.beta)

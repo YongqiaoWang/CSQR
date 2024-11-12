@@ -10,7 +10,7 @@ def draw_disturbed_frontier(InputX, OutputY, DisturbY, EstY, EstDisturbY, fronti
     data = (np.stack([(InputX[:, 0]).T, OutputY, DisturbY, EstY, EstDisturbY], axis=0)).T
     data = data[np.argsort(data[:, 0])].T
     x, y, ty, f, tf = data[0], data[1], data[2], data[3], data[4]
-    dptf = ax.plot(x, tf, color="b")
+    dptf = ax.plot(x, tf, color="r")
     dpf = ax.plot(x, f, color="b", linestyle='dashed')
     
     malpha = np.where(y == ty, 0.2, 1)
@@ -24,8 +24,8 @@ def draw_disturbed_frontier(InputX, OutputY, DisturbY, EstY, EstDisturbY, fronti
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
     legend = plt.legend([dpf[0], dptf[0]],
-                            [frontier_name+' before changes',
-                             frontier_name+' after changes'],
+                            [frontier_name+' before disturbation',
+                             frontier_name+' after disturbation'],
                             loc='lower right',
                             ncol=1,
                             fontsize=10,
